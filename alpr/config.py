@@ -35,6 +35,10 @@ class ALPRConfig:
     use_mps: bool = True  # Apple Silicon GPU
     use_directml: bool = False  # DirectML for Windows
     
+    # Model format
+    use_onnx: bool = False
+    onnx_models_dir: str = field(default_factory=lambda: os.path.normpath(os.path.join(os.getcwd(), "models", "onnx")))
+    
     # Derived properties
     _model_paths: Dict[str, str] = field(default_factory=dict, init=False)
     
@@ -42,14 +46,17 @@ class ALPRConfig:
         """Validate configuration and set derived properties"""
         self.validate()
         
-        # Set model paths
+        # Set model paths based on model format (ONNX or PyTorch)
+        model_ext = ".onnx" if self.use_onnx else ".pt"
+        models_directory = self.onnx_models_dir if self.use_onnx else self.models_dir
+        
         self._model_paths = {
-            "plate_detector": os.path.join(self.models_dir, "plate_detector.pt"),
-            "state_classifier": os.path.join(self.models_dir, "state_classifier.pt"),
-            "char_detector": os.path.join(self.models_dir, "char_detector.pt"),
-            "char_classifier": os.path.join(self.models_dir, "char_classifier.pt"),
-            "vehicle_detector": os.path.join(self.models_dir, "vehicle_detector.pt"),
-            "vehicle_classifier": os.path.join(self.models_dir, "vehicle_classifier.pt"),
+            "plate_detector": os.path.join(models_directory, f"plate_detector{model_ext}"),
+            "state_classifier": os.path.join(models_directory, f"state_classifier{model_ext}"),
+            "char_detector": os.path.join(models_directory, f"char_detector{model_ext}"),
+            "char_classifier": os.path.join(models_directory, f"char_classifier{model_ext}"),
+            "vehicle_detector": os.path.join(models_directory, f"vehicle_detector{model_ext}"),
+            "vehicle_classifier": os.path.join(models_directory, f"vehicle_classifier{model_ext}"),
         }
     
     def validate(self) -> None:
@@ -69,6 +76,10 @@ class ALPRConfig:
         # Validate paths
         if not os.path.exists(self.models_dir):
             raise ValueError(f"Models directory does not exist: {self.models_dir}")
+        
+        # Validate ONNX models directory if using ONNX
+        if self.use_onnx and not os.path.exists(self.onnx_models_dir):
+            raise ValueError(f"ONNX models directory does not exist: {self.onnx_models_dir}")
         
         # Validate plate aspect ratio
         if self.plate_aspect_ratio is not None and self.plate_aspect_ratio <= 0:
@@ -90,10 +101,12 @@ class ALPRConfig:
             "paths": {
                 "app_dir": self.app_dir,
                 "models_dir": self.models_dir,
+                "onnx_models_dir": self.onnx_models_dir if self.use_onnx else None,
             },
             "features": {
                 "enable_state_detection": self.enable_state_detection,
                 "enable_vehicle_detection": self.enable_vehicle_detection,
+                "use_onnx": self.use_onnx,
             },
             "confidence_thresholds": {
                 "plate_detector": self.plate_detector_confidence,
@@ -147,6 +160,10 @@ def load_from_env() -> ALPRConfig:
     use_mps = True  # Default to true, will be checked for availability later
     use_directml = False  # Not yet supported
     
+    # Model format
+    use_onnx = ModuleOptions.getEnvVariable("USE_ONNX", "False").lower() == "true"
+    onnx_models_dir = os.path.normpath(ModuleOptions.getEnvVariable("ONNX_MODELS_DIR", f"{app_dir}/models/onnx"))
+    
     return ALPRConfig(
         app_dir=app_dir,
         models_dir=models_dir,
@@ -162,5 +179,7 @@ def load_from_env() -> ALPRConfig:
         corner_dilation_pixels=corner_dilation_pixels,
         use_cuda=use_cuda,
         use_mps=use_mps,
-        use_directml=use_directml
+        use_directml=use_directml,
+        use_onnx=use_onnx,
+        onnx_models_dir=onnx_models_dir
     )

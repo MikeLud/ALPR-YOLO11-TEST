@@ -16,6 +16,7 @@ fi
 
 # Create directories if they don't exist
 mkdir -p "models"
+mkdir -p "models/onnx"
 mkdir -p "test"
 
 # Copy alpr_system_v205.py to the directory with appropriate naming
@@ -39,9 +40,14 @@ if [ "$moduleInstallErrors" = "" ] && [ "$inDocker" != true ] && [ "$os" = "linu
     installAptPackages "libgl1-mesa-glx libglib2.0-0"
 fi
 
-# Download the models and store in /models
+# Download the PyTorch models and store in /models
 if [ "$moduleInstallErrors" = "" ]; then
     getFromServer "models/" "alpr-models-yolov8.zip" "models" "Downloading ALPR YOLOv8 models..."
+fi
+
+# Download the ONNX models and store in /models/onnx
+if [ "$moduleInstallErrors" = "" ]; then
+    getFromServer "models/" "alpr-models-yolov8-onnx.zip" "models/onnx" "Downloading ALPR YOLOv8 ONNX models..."
 fi
 
 # Download a test image

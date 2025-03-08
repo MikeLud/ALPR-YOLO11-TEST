@@ -39,7 +39,9 @@
         "VEHICLE_DETECTOR_CONFIDENCE": "0.45",
         "VEHICLE_CLASSIFIER_CONFIDENCE": "0.45",
         "PLATE_ASPECT_RATIO"        : "4.0",
-        "CORNER_DILATION_PIXELS"    : "5"
+        "CORNER_DILATION_PIXELS"    : "5",
+        "USE_ONNX"                  : "False",
+        "ONNX_MODELS_DIR"           : "%CURRENT_MODULE_PATH%/models/onnx"
       },
 
       "GpuOptions" : {
@@ -64,6 +66,13 @@
 
       "UIElements" : {
         "Menus": [{
+          "Label": "Model Format",
+          "Options": [
+            { "Label": "PyTorch (Default)", "Setting": "USE_ONNX", "Value": "False" },
+            { "Label": "ONNX", "Setting": "USE_ONNX", "Value": "True" }
+          ]
+        },
+        {
           "Label": "State Detection",
           "Options": [
             { "Label": "Enable state detection",    "Setting": "ENABLE_STATE_DETECTION", "Value": "True" },

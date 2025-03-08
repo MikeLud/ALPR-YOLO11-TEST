@@ -10,6 +10,7 @@ This is an Automatic License Plate Recognition (ALPR) module for [CodeProject.AI
 - Vehicle detection and make/model classification (when enabled)
 - Support for GPU acceleration via CUDA (NVIDIA) or MPS (Apple Silicon)
 - Configurable confidence thresholds and plate aspect ratios
+- Support for both PyTorch and ONNX model formats
 
 ## API Endpoint
 
@@ -30,12 +31,14 @@ Parameters:
 
 This module uses YOLOv8 models for various detection and recognition tasks:
 
-- **plate_detector.pt**: Detects license plates in the image
-- **state_classifier.pt**: Identifies the US state for a license plate
-- **char_detector.pt**: Detects individual characters on the license plate
-- **char_classifier.pt**: Recognizes each character (OCR)
-- **vehicle_detector.pt**: Detects vehicles in the image
-- **vehicle_classifier.pt**: Identifies vehicle make and model
+- **plate_detector.pt/onnx**: Detects license plates in the image
+- **state_classifier.pt/onnx**: Identifies the US state for a license plate
+- **char_detector.pt/onnx**: Detects individual characters on the license plate
+- **char_classifier.pt/onnx**: Recognizes each character (OCR)
+- **vehicle_detector.pt/onnx**: Detects vehicles in the image
+- **vehicle_classifier.pt/onnx**: Identifies vehicle make and model
+
+Both PyTorch (.pt) and ONNX (.onnx) model formats are supported.
 
 ## Configuration
 
@@ -45,7 +48,18 @@ The module supports several configuration options through environment variables:
 - `ENABLE_VEHICLE_DETECTION`: Enable/disable vehicle detection
 - `PLATE_ASPECT_RATIO`: Set a specific aspect ratio for license plates
 - `CORNER_DILATION_PIXELS`: Configure corner dilation for license plate extraction
+- `USE_ONNX`: Use ONNX models for faster inference (default: false, uses PyTorch)
+- `ONNX_MODELS_DIR`: Directory path for ONNX models (default: "models/onnx")
 - Various confidence thresholds for different detection components
+
+## ONNX Support
+
+This module can use ONNX models for potentially faster inference, especially on edge devices or when GPU acceleration is not available. ONNX models are stored in the "models/onnx" directory and can be enabled through the "Model Format" option in the UI or by setting the `USE_ONNX` environment variable to "True".
+
+Benefits of ONNX:
+- Faster inference on many platforms
+- Better compatibility with different hardware
+- Optimized runtime performance
 
 ## Requirements
 
@@ -53,3 +67,4 @@ The module supports several configuration options through environment variables:
 - PyTorch
 - OpenCV
 - Ultralytics YOLOv8
+- ONNX Runtime (optional, for ONNX models)

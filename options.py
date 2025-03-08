@@ -28,6 +28,10 @@ class Options:
         self.plate_aspect_ratio      = ModuleOptions.getEnvVariable("PLATE_ASPECT_RATIO", "4.0")
         self.corner_dilation_pixels  = ModuleOptions.getEnvVariable("CORNER_DILATION_PIXELS", "5")
 
+        # Model format
+        self.use_onnx            = ModuleOptions.getEnvVariable("USE_ONNX", "False").lower() == "true"
+        self.onnx_models_dir     = os.path.normpath(ModuleOptions.getEnvVariable("ONNX_MODELS_DIR", f"{self.app_dir}/models/onnx"))
+
         # GPU settings
         self.use_CUDA           = ModuleOptions.getEnvVariable("USE_CUDA", "True").lower() == "true"
         self.use_MPS            = True  # only if available...
@@ -40,5 +44,7 @@ class Options:
             print(f"Debug: APPDIR:      {self.app_dir}")
             print(f"Debug: MODELS_DIR:  {self.models_dir}")
             print(f"Debug: USE_CUDA:    {self.use_CUDA}")
+            print(f"Debug: USE_ONNX:    {self.use_onnx}")
+            print(f"Debug: ONNX_MODELS_DIR: {self.onnx_models_dir}")
             print(f"Debug: ENABLE_STATE_DETECTION: {self.enable_state_detection}")
             print(f"Debug: ENABLE_VEHICLE_DETECTION: {self.enable_vehicle_detection}")

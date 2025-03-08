@@ -7,6 +7,7 @@ import torch
 from typing import List, Dict, Any, Tuple, Optional
 from ultralytics import YOLO
 
+from .base import YOLOBase
 from ..config import ALPRConfig
 from ..exceptions import ModelLoadingError, InferenceError, CharacterRecognitionError
 
@@ -37,14 +38,29 @@ class CharacterDetector:
         self.char_detector_resolution = (160, 160)
         self.char_classifier_resolution = (32, 32)
         
-        # Initialize the models
+        # Initialize the detector model
         try:
-            self.char_detector_model = YOLO(self.char_detector_path, task='detect')
+            self.char_detector = CharDetector(
+                model_path=self.char_detector_path,
+                task='detect',
+                use_onnx=config.use_onnx,
+                use_cuda=config.use_cuda,
+                resolution=self.char_detector_resolution,
+                confidence=self.char_detector_confidence
+            )
         except Exception as e:
             raise ModelLoadingError(self.char_detector_path, e)
             
+        # Initialize the classifier model
         try:
-            self.char_classifier_model = YOLO(self.char_classifier_path, task='classify')
+            self.char_classifier = CharClassifier(
+                model_path=self.char_classifier_path,
+                task='classify',
+                use_onnx=config.use_onnx,
+                use_cuda=config.use_cuda,
+                resolution=self.char_classifier_resolution,
+                confidence=self.char_classifier_confidence
+            )
         except Exception as e:
             raise ModelLoadingError(self.char_classifier_path, e)
     
@@ -61,58 +77,7 @@ class CharacterDetector:
         Raises:
             InferenceError: If detection fails
         """
-        # Resize plate image for character detector
-        plate_resized = cv2.resize(plate_image, self.char_detector_resolution)
-        
-        try:
-            # Run character detection model
-            results = self.char_detector_model.predict(
-                plate_resized, 
-                conf=self.char_detector_confidence, 
-                verbose=False
-            )[0]
-        except Exception as e:
-            raise InferenceError("char_detector", e)
-        
-        # Process the results to extract character bounding boxes
-        characters = []
-        
-        if hasattr(results, 'boxes') and hasattr(results.boxes, 'xyxy'):
-            for i, box in enumerate(results.boxes.xyxy):
-                x1, y1, x2, y2 = box.cpu().numpy()
-                
-                # Scale the coordinates back to the original plate image size
-                h, w = plate_image.shape[:2]
-                scale_x = w / self.char_detector_resolution[0]
-                scale_y = h / self.char_detector_resolution[1]
-                
-                x1 = int(x1 * scale_x)
-                y1 = int(y1 * scale_y)
-                x2 = int(x2 * scale_x)
-                y2 = int(y2 * scale_y)
-                
-                # Ensure the box coordinates are within the image bounds
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
-                
-                # Skip invalid boxes
-                if x1 >= x2 or y1 >= y2:
-                    continue
-                
-                confidence = float(results.boxes.conf[i].item()) if hasattr(results.boxes, 'conf') else 0.0
-                
-                # Extract the character region
-                char_img = plate_image[y1:y2, x1:x2]
-                
-                characters.append({
-                    "box": [x1, y1, x2, y2],
-                    "confidence": confidence,
-                    "image": char_img
-                })
-        
-        return characters
+        return self.char_detector.detect(plate_image)
     
     def organize_characters(self, characters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -227,75 +192,7 @@ class CharacterDetector:
             InferenceError: If classification fails
             CharacterRecognitionError: If character image is invalid
         """
-        if char_image.size == 0:
-            return [("?", 0.0)]
-        
-        # Resize character image for classifier
-        try:
-            char_resized = cv2.resize(char_image, self.char_classifier_resolution)
-        except Exception as e:
-            raise CharacterRecognitionError(f"Failed to resize character image: {str(e)}")
-        
-        try:
-            # Run character classification model
-            results = self.char_classifier_model.predict(
-                char_resized, 
-                conf=self.char_classifier_confidence, 
-                verbose=False
-            )[0]
-        except Exception as e:
-            raise InferenceError("char_classifier", e)
-        
-        top_predictions = []
-        
-        # Extract top5 predictions if available
-        if hasattr(results, 'probs'):
-            probs = results.probs
-            
-            # Try to access probability data
-            if hasattr(probs, 'data'):
-                try:
-                    # Convert to tensor if it's not already
-                    probs_tensor = probs.data
-                    if not isinstance(probs_tensor, torch.Tensor):
-                        probs_tensor = torch.tensor(probs_tensor)
-                    
-                    # Get top 5 predictions
-                    values, indices = torch.topk(probs_tensor, min(5, len(probs_tensor)))
-                    
-                    # Convert to list of (char, confidence) tuples
-                    char_names = self.char_classifier_model.names
-                    for i in range(len(values)):
-                        idx = int(indices[i].item())
-                        conf = float(values[i].item())
-                        
-                        # Only include predictions with confidence > 0.02
-                        if conf >= 0.02:
-                            character = char_names[idx]
-                            top_predictions.append((character, conf))
-                except Exception as e:
-                    # Fallback to top1 if available
-                    if hasattr(probs, 'top1') and hasattr(probs, 'top1conf'):
-                        idx = int(probs.top1)
-                        conf = float(probs.top1conf.item())
-                        
-                        char_names = self.char_classifier_model.names
-                        character = char_names[idx]
-                        top_predictions.append((character, conf))
-            elif hasattr(probs, 'top1') and hasattr(probs, 'top1conf'):
-                # Fallback to top1 if data attribute not available
-                idx = int(probs.top1)
-                conf = float(probs.top1conf.item())
-                
-                char_names = self.char_classifier_model.names
-                character = char_names[idx]
-                top_predictions.append((character, conf))
-        
-        # If no predictions were found or all had low confidence
-        if not top_predictions:
-            top_predictions.append(("?", 0.0))
-        
-        return top_predictions
+        return self.char_classifier.classify(char_image)
     
     def process_plate(self, plate_image: np.ndarray) -> Dict[str, Any]:
         """
@@ -406,3 +303,298 @@ class CharacterDetector:
         # Sort by confidence and take top N
         combinations.sort(key=lambda x: x["confidence"], reverse=True)
         return combinations[:max_combinations]
+
+
+class CharDetector(YOLOBase):
+    """Character detector for license plates using YOLOv8 or ONNX."""
+    
+    def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
+                 resolution: Tuple[int, int], confidence: float):
+        """
+        Initialize the character detector.
+        
+        Args:
+            model_path: Path to the model file
+            task: Task type
+            use_onnx: Whether to use ONNX
+            use_cuda: Whether to use CUDA
+            resolution: Input resolution for the model
+            confidence: Confidence threshold
+        """
+        super().__init__(model_path, task, use_onnx, use_cuda)
+        self.resolution = resolution
+        self.confidence_threshold = confidence
+    
+    def detect(self, plate_image: np.ndarray) -> List[Dict[str, Any]]:
+        """
+        Detect characters in the license plate image.
+        
+        Args:
+            plate_image: License plate image
+            
+        Returns:
+            List of character detections
+        """
+        # Resize plate image for detector
+        plate_resized = cv2.resize(plate_image, self.resolution)
+        
+        try:
+            if self.use_onnx:
+                return self._detect_onnx(plate_image, plate_resized)
+            else:
+                return self._detect_pytorch(plate_image, plate_resized)
+        except Exception as e:
+            raise InferenceError("char_detector", e)
+    
+    def _detect_pytorch(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect characters using PyTorch model"""
+        # Run character detection model
+        results = self.model.predict(
+            resized_image, 
+            conf=self.confidence_threshold, 
+            verbose=False
+        )[0]
+        
+        # Process the results to extract character bounding boxes
+        characters = []
+        
+        if hasattr(results, 'boxes') and hasattr(results.boxes, 'xyxy'):
+            for i, box in enumerate(results.boxes.xyxy):
+                x1, y1, x2, y2 = box.cpu().numpy()
+                
+                # Scale the coordinates back to the original plate image size
+                h, w = original_image.shape[:2]
+                scale_x = w / self.resolution[0]
+                scale_y = h / self.resolution[1]
+                
+                x1 = int(x1 * scale_x)
+                y1 = int(y1 * scale_y)
+                x2 = int(x2 * scale_x)
+                y2 = int(y2 * scale_y)
+                
+                # Ensure the box coordinates are within the image bounds
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(w, x2)
+                y2 = min(h, y2)
+                
+                # Skip invalid boxes
+                if x1 >= x2 or y1 >= y2:
+                    continue
+                
+                confidence = float(results.boxes.conf[i].item()) if hasattr(results.boxes, 'conf') else 0.0
+                
+                # Extract the character region
+                char_img = original_image[y1:y2, x1:x2]
+                
+                characters.append({
+                    "box": [x1, y1, x2, y2],
+                    "confidence": confidence,
+                    "image": char_img
+                })
+        
+        return characters
+    
+    def _detect_onnx(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect characters using ONNX model"""
+        # Preprocess image for ONNX
+        input_tensor = self._preprocess_image(resized_image, self.resolution)
+        
+        # Run inference
+        outputs = self.onnx_session.run(
+            self.output_names, 
+            {self.input_name: input_tensor}
+        )
+        
+        # Parse ONNX outputs (format depends on your exported model)
+        # This implementation assumes a specific output format
+        # For detection models: outputs typically include boxes, scores, classes
+        boxes = outputs[0]
+        scores = outputs[1] if len(outputs) > 1 else None
+        
+        # Process detections
+        characters = []
+        
+        if boxes is not None:
+            h, w = original_image.shape[:2]
+            
+            for i in range(len(boxes)):
+                # Skip detections below confidence threshold
+                if scores is not None and scores[i] < self.confidence_threshold:
+                    continue
+                
+                # Get box coordinates
+                x1, y1, x2, y2 = boxes[i]
+                
+                # Scale coordinates to original image
+                x1 = int(x1 * w / self.resolution[0])
+                y1 = int(y1 * h / self.resolution[1])
+                x2 = int(x2 * w / self.resolution[0])
+                y2 = int(y2 * h / self.resolution[1])
+                
+                # Ensure coordinates are within image bounds
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(w, x2)
+                y2 = min(h, y2)
+                
+                # Skip invalid boxes
+                if x1 >= x2 or y1 >= y2:
+                    continue
+                
+                # Extract character image
+                char_img = original_image[y1:y2, x1:x2]
+                
+                # Store detection
+                characters.append({
+                    "box": [x1, y1, x2, y2],
+                    "confidence": float(scores[i]) if scores is not None else 0.0,
+                    "image": char_img
+                })
+        
+        return characters
+
+
+class CharClassifier(YOLOBase):
+    """Character classifier for license plates using YOLOv8 or ONNX."""
+    
+    def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
+                 resolution: Tuple[int, int], confidence: float):
+        """
+        Initialize the character classifier.
+        
+        Args:
+            model_path: Path to the model file
+            task: Task type
+            use_onnx: Whether to use ONNX
+            use_cuda: Whether to use CUDA
+            resolution: Input resolution for the model
+            confidence: Confidence threshold
+        """
+        super().__init__(model_path, task, use_onnx, use_cuda)
+        self.resolution = resolution
+        self.confidence_threshold = confidence
+    
+    def classify(self, char_image: np.ndarray) -> List[Tuple[str, float]]:
+        """
+        Classify a character and return top predictions.
+        
+        Args:
+            char_image: Character image
+            
+        Returns:
+            List of (character, confidence) tuples
+        """
+        if char_image.size == 0:
+            return [("?", 0.0)]
+        
+        # Resize character image for classifier
+        try:
+            char_resized = cv2.resize(char_image, self.resolution)
+        except Exception as e:
+            raise CharacterRecognitionError(f"Failed to resize character image: {str(e)}")
+        
+        try:
+            if self.use_onnx:
+                return self._classify_onnx(char_resized)
+            else:
+                return self._classify_pytorch(char_resized)
+        except Exception as e:
+            raise InferenceError("char_classifier", e)
+    
+    def _classify_pytorch(self, char_image: np.ndarray) -> List[Tuple[str, float]]:
+        """Classify character using PyTorch model"""
+        # Run character classification model
+        results = self.model.predict(
+            char_image, 
+            conf=self.confidence_threshold, 
+            verbose=False
+        )[0]
+        
+        top_predictions = []
+        
+        # Extract top5 predictions if available
+        if hasattr(results, 'probs'):
+            probs = results.probs
+            
+            # Try to access probability data
+            if hasattr(probs, 'data'):
+                try:
+                    # Convert to tensor if it's not already
+                    probs_tensor = probs.data
+                    if not isinstance(probs_tensor, torch.Tensor):
+                        probs_tensor = torch.tensor(probs_tensor)
+                    
+                    # Get top 5 predictions
+                    values, indices = torch.topk(probs_tensor, min(5, len(probs_tensor)))
+                    
+                    # Convert to list of (char, confidence) tuples
+                    char_names = self.model.names
+                    for i in range(len(values)):
+                        idx = int(indices[i].item())
+                        conf = float(values[i].item())
+                        
+                        # Only include predictions with confidence > 0.02
+                        if conf >= 0.02:
+                            character = char_names[idx]
+                            top_predictions.append((character, conf))
+                except Exception as e:
+                    # Fallback to top1 if available
+                    if hasattr(probs, 'top1') and hasattr(probs, 'top1conf'):
+                        idx = int(probs.top1)
+                        conf = float(probs.top1conf.item())
+                        
+                        char_names = self.model.names
+                        character = char_names[idx]
+                        top_predictions.append((character, conf))
+            elif hasattr(probs, 'top1') and hasattr(probs, 'top1conf'):
+                # Fallback to top1 if data attribute not available
+                idx = int(probs.top1)
+                conf = float(probs.top1conf.item())
+                
+                char_names = self.model.names
+                character = char_names[idx]
+                top_predictions.append((character, conf))
+        
+        # If no predictions were found or all had low confidence
+        if not top_predictions:
+            top_predictions.append(("?", 0.0))
+        
+        return top_predictions
+    
+    def _classify_onnx(self, char_image: np.ndarray) -> List[Tuple[str, float]]:
+        """Classify character using ONNX model"""
+        # Preprocess image for ONNX
+        input_tensor = self._preprocess_image(char_image, self.resolution)
+        
+        # Run inference
+        outputs = self.onnx_session.run(
+            self.output_names, 
+            {self.input_name: input_tensor}
+        )
+        
+        # Parse ONNX outputs
+        # For classification, output is typically class probabilities
+        probs = outputs[0]
+        
+        # Get top 5 predictions
+        top_predictions = []
+        
+        if probs is not None:
+            # Get indices of top 5 probabilities
+            top_indices = np.argsort(probs[0])[::-1][:5]
+            
+            # Create list of (character, confidence) tuples
+            for idx in top_indices:
+                conf = float(probs[0][idx])
+                
+                # Only include predictions with confidence > 0.02
+                if conf >= 0.02:
+                    character = self.names.get(str(idx), self.names.get(idx, "?"))
+                    top_predictions.append((character, conf))
+        
+        # If no predictions were found or all had low confidence
+        if not top_predictions:
+            top_predictions.append(("?", 0.0))
+        
+        return top_predictions
