@@ -1,0 +1,469 @@
+{
+  "success": true,
+  "processMs": 106,
+  "inferenceMs": 99,
+  "predictions": [],
+  "message": "No license plates detected",
+  "count": 0
+}
+
+{
+  "success": true,
+  "processMs": 107,
+  "inferenceMs": 99,
+  "predictions": [],
+  "message": "No license plates detected",
+  "count": 0
+}
+
+{
+  "success": true,
+  "processMs": 133,
+  "inferenceMs": 121,
+  "predictions": [],
+  "message": "No license plates detected",
+  "count": 0
+}
+
+{
+  "success": true,
+  "processMs": 167,
+  "inferenceMs": 160,
+  "predictions": [],
+  "message": "No license plates detected",
+  "count": 0
+}
+
+{
+  "success": true,
+  "processMs": 229,
+  "inferenceMs": 218,
+  "predictions": [],
+  "message": "No license plates detected",
+  "count": 0
+}
+
+{
+  "success": true,
+  "processMs": 393,
+  "inferenceMs": 383,
+  "predictions": [
+    {
+      "confidence": 0.9216500392981938,
+      "is_day_plate": true,
+      "label": "T79A55C",
+      "plate": "T79A55C",
+      "x_min": 116,
+      "y_min": 582,
+      "x_max": 267,
+      "y_max": 678,
+      "top_plates": [
+        {
+          "plate": "T79A55C",
+          "confidence": 0.9216500392981938
+        },
+        {
+          "plate": "T79455C",
+          "confidence": 0.9070944913796016
+        },
+        {
+          "plate": "T79L55C",
+          "confidence": 0.8753354187522616
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T79A55C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 789,
+  "inferenceMs": 778,
+  "predictions": [
+    {
+      "confidence": 0.8736104170481364,
+      "is_day_plate": true,
+      "label": "T9L55C",
+      "plate": "T9L55C",
+      "x_min": -5,
+      "y_min": 587,
+      "x_max": 147,
+      "y_max": 682,
+      "top_plates": [
+        {
+          "plate": "T9L55C",
+          "confidence": 0.8736104170481364
+        },
+        {
+          "plate": "T9A55C",
+          "confidence": 0.785779632627964
+        },
+        {
+          "plate": "79L55C",
+          "confidence": 0.7836418598890305
+        },
+        {
+          "plate": "T9455C",
+          "confidence": 0.7820773075024287
+        },
+        {
+          "plate": "Y9L55C",
+          "confidence": 0.7810042711595694
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T9L55C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 809,
+  "inferenceMs": 799,
+  "predictions": [
+    {
+      "confidence": 0.9806749373674393,
+      "is_day_plate": true,
+      "label": "7T94455C",
+      "plate": "7T94455C",
+      "x_min": 350,
+      "y_min": 573,
+      "x_max": 500,
+      "y_max": 666,
+      "top_plates": [
+        {
+          "plate": "7T94455C",
+          "confidence": 0.9806749373674393
+        },
+        {
+          "plate": "7T94A55C",
+          "confidence": 0.8813439961522818
+        },
+        {
+          "plate": "7T9A455C",
+          "confidence": 0.8628904495853931
+        },
+        {
+          "plate": "7T9AA55C",
+          "confidence": 0.7635595083702356
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: 7T94455C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 1054,
+  "inferenceMs": 1048,
+  "predictions": [
+    {
+      "confidence": 0.9544605612754822,
+      "is_day_plate": true,
+      "label": "T794L55C",
+      "plate": "T794L55C",
+      "x_min": 462,
+      "y_min": 568,
+      "x_max": 610,
+      "y_max": 662,
+      "top_plates": [
+        {
+          "plate": "T794L55C",
+          "confidence": 0.9544605612754822
+        },
+        {
+          "plate": "T794455C",
+          "confidence": 0.8948298413306475
+        },
+        {
+          "plate": "T794A55C",
+          "confidence": 0.8816934246569872
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T794L55C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 1111,
+  "inferenceMs": 1105,
+  "predictions": [
+    {
+      "confidence": 0.9080817550420761,
+      "is_day_plate": true,
+      "label": "T79A455C",
+      "plate": "T79A455C",
+      "x_min": 779,
+      "y_min": 559,
+      "x_max": 929,
+      "y_max": 649,
+      "top_plates": [
+        {
+          "plate": "T79A455C",
+          "confidence": 0.9080817550420761
+        },
+        {
+          "plate": "T794455C",
+          "confidence": 0.8768898993730545
+        },
+        {
+          "plate": "T79AA55C",
+          "confidence": 0.8712154738605022
+        },
+        {
+          "plate": "T794A55C",
+          "confidence": 0.8400236181914806
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T79A455C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 1128,
+  "inferenceMs": 1118,
+  "predictions": [
+    {
+      "confidence": 0.9324695997767978,
+      "is_day_plate": true,
+      "label": "T7944A55C",
+      "plate": "T7944A55C",
+      "x_min": 675,
+      "y_min": 558,
+      "x_max": 823,
+      "y_max": 652,
+      "top_plates": [
+        {
+          "plate": "T7944A55C",
+          "confidence": 0.9324695997767978
+        },
+        {
+          "plate": "T794LA55C",
+          "confidence": 0.8769771945145394
+        },
+        {
+          "plate": "T794VA55C",
+          "confidence": 0.8693640393515427
+        },
+        {
+          "plate": "T7944455C",
+          "confidence": 0.8657432198524474
+        },
+        {
+          "plate": "T794L455C",
+          "confidence": 0.810250814590189
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T7944A55C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 1065,
+  "inferenceMs": 1059,
+  "predictions": [
+    {
+      "confidence": 0.9495010748505592,
+      "is_day_plate": true,
+      "label": "T79AA55C",
+      "plate": "T79AA55C",
+      "x_min": 1073,
+      "y_min": 544,
+      "x_max": 1220,
+      "y_max": 635,
+      "top_plates": [
+        {
+          "plate": "T79AA55C",
+          "confidence": 0.9495010748505592
+        },
+        {
+          "plate": "T794A55C",
+          "confidence": 0.9228470511734486
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T79AA55C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 1094,
+  "inferenceMs": 1088,
+  "predictions": [
+    {
+      "confidence": 0.9714200960265266,
+      "is_day_plate": true,
+      "label": "T794A55CA",
+      "plate": "T794A55CA",
+      "x_min": 977,
+      "y_min": 544,
+      "x_max": 1125,
+      "y_max": 638,
+      "top_plates": [
+        {
+          "plate": "T794A55CA",
+          "confidence": 0.9714200960265266
+        },
+        {
+          "plate": "T794A55C4",
+          "confidence": 0.8882340614994367
+        },
+        {
+          "plate": "T794455CA",
+          "confidence": 0.8823674122492472
+        },
+        {
+          "plate": "T794455C4",
+          "confidence": 0.7991813777221574
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T794A55CA",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 985,
+  "inferenceMs": 977,
+  "predictions": [
+    {
+      "confidence": 0.9153865091502666,
+      "is_day_plate": true,
+      "label": "79T4455C",
+      "plate": "79T4455C",
+      "x_min": 1262,
+      "y_min": 541,
+      "x_max": 1405,
+      "y_max": 627,
+      "top_plates": [
+        {
+          "plate": "79T4455C",
+          "confidence": 0.9153865091502666
+        },
+        {
+          "plate": "79T4L55C",
+          "confidence": 0.8993850573897362
+        },
+        {
+          "plate": "79T4155C",
+          "confidence": 0.8841334143653512
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: 79T4455C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 982,
+  "inferenceMs": 977,
+  "predictions": [
+    {
+      "confidence": 0.9401241466403008,
+      "is_day_plate": true,
+      "label": "T794455C",
+      "plate": "T794455C",
+      "x_min": 1351,
+      "y_min": 529,
+      "x_max": 1497,
+      "y_max": 621,
+      "top_plates": [
+        {
+          "plate": "T794455C",
+          "confidence": 0.9401241466403008
+        },
+        {
+          "plate": "T794L55C",
+          "confidence": 0.9017390981316566
+        },
+        {
+          "plate": "T794155C",
+          "confidence": 0.878123733215034
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T794455C",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 876,
+  "inferenceMs": 871,
+  "predictions": [
+    {
+      "confidence": 0.9920421540737152,
+      "is_day_plate": true,
+      "label": "T794A5C5",
+      "plate": "T794A5C5",
+      "x_min": 1527,
+      "y_min": 527,
+      "x_max": 1672,
+      "y_max": 614,
+      "top_plates": [
+        {
+          "plate": "T794A5C5",
+          "confidence": 0.9920421540737152
+        },
+        {
+          "plate": "T79445C5",
+          "confidence": 0.8806410091929138
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T794A5C5",
+  "count": 1
+}
+
+{
+  "success": true,
+  "processMs": 875,
+  "inferenceMs": 869,
+  "predictions": [
+    {
+      "confidence": 0.9944751039147377,
+      "is_day_plate": true,
+      "label": "T794A55C",
+      "plate": "T794A55C",
+      "x_min": 1610,
+      "y_min": 518,
+      "x_max": 1752,
+      "y_max": 610,
+      "top_plates": [
+        {
+          "plate": "T794A55C",
+          "confidence": 0.9944751039147377
+        },
+        {
+          "plate": "T79AA55C",
+          "confidence": 0.8765132301487029
+        }
+      ]
+    }
+  ],
+  "message": "Found 1 license plates: T794A55C",
+  "count": 1
+}
+
