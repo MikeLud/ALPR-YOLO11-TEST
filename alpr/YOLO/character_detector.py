@@ -257,7 +257,7 @@ class CharacterDetector:
             top_preds = char_result.get("top_predictions", [])
             
             # If we have at least 2 predictions with good confidence
-            if len(top_preds) >= 2 and top_preds[1][1] >= 0.02:
+            if len(top_preds) >= 2 and top_preds[1][1] >= 0.01:
                 confidence_diff = top_preds[0][1] - top_preds[1][1]
                 uncertain_positions.append((i, confidence_diff))
         

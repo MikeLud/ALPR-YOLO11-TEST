@@ -21,7 +21,7 @@
       "LaunchSettings": {
         "AutoStart"          : false,
         "FilePath"           : "alpr_adapter.py",
-        "Runtime"            : "python3.8",
+        "Runtime"            : "python3.10",
         "RuntimeLocation"    : "Local", 
         "PostStartPauseSecs" : 0,
         "Queue"              : "alpr_queue",
@@ -108,21 +108,21 @@
         {
           "Label": "Plate Detection Confidence",
           "Options": [
-            { "Label": "Very High (0.65)", "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.65" },
-            { "Label": "High (0.55)",     "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.55" },
-            { "Label": "Medium (0.45)",   "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.45" },
-            { "Label": "Low (0.35)",      "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.35" },
-            { "Label": "Very Low (0.25)", "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.25" }
+            { "Label": "Very High (0.90)", "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.90" },
+            { "Label": "High (0.85)",     "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.85" },
+            { "Label": "Medium (0.80)",   "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.80" },
+            { "Label": "Low (0.75)",      "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.75" },
+            { "Label": "Very Low (0.70)", "Setting": "PLATE_DETECTOR_CONFIDENCE", "Value": "0.70" }
           ]
         },
         {
           "Label": "Character Detection Confidence",
           "Options": [
-            { "Label": "Very High (0.60)", "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.60" },
-            { "Label": "High (0.50)",     "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.50" },
-            { "Label": "Medium (0.40)",   "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.40" },
-            { "Label": "Low (0.30)",      "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.30" },
-            { "Label": "Very Low (0.20)", "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.20" }
+            { "Label": "Very High (0.90)", "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.90" },
+            { "Label": "High (0.80)",     "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.80" },
+            { "Label": "Medium (0.70)",   "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.70" },
+            { "Label": "Low (0.60)",      "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.60" },
+            { "Label": "Very Low (0.50)", "Setting": "CHAR_DETECTOR_CONFIDENCE", "Value": "0.50" }
           ]
         },
         {

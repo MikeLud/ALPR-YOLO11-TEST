@@ -2,7 +2,7 @@
   "Modules": {
     "ALPR": {
       "LaunchSettings": {
-        "Runtime": "python3.9"
+        "Runtime": "python3.10"
       }
     }
   }
