@@ -11,7 +11,7 @@ from ultralytics import YOLO
 from .base import YOLOBase
 from ..config import ALPRConfig
 from ..exceptions import ModelLoadingError, InferenceError
-from ..utils.image_processing import dilate_corners
+from ..utils.image_processing import dilate_corners, save_debug_image
 
 
 class PlateDetector(YOLOBase):
@@ -35,6 +35,8 @@ class PlateDetector(YOLOBase):
         self.confidence_threshold = config.plate_detector_confidence
         self.corner_dilation_pixels = config.corner_dilation_pixels
         self.resolution = (640, 640)  # Standard YOLOv8 input resolution
+        self.save_debug_images = config.save_debug_images
+        self.debug_images_dir = config.debug_images_dir
         
         # Initialize the model
         try:
@@ -63,6 +65,18 @@ class PlateDetector(YOLOBase):
         # Resize image for plate detector
         h, w = image.shape[:2]
         img_resized = cv2.resize(image, self.resolution)
+
+        
+        # Save resized image for debugging if enabled
+        if self.save_debug_images:
+            save_debug_image(
+                image=img_resized,
+                debug_dir=self.debug_images_dir,
+                prefix="plate_detector",
+                suffix="resized_input",
+                draw_objects=None,
+                draw_type=None
+            )
         
         try:
             if self.use_onnx:
@@ -70,6 +84,22 @@ class PlateDetector(YOLOBase):
             else:
                 # Run YOLOv8 keypoint detection model to detect plate corners
                 results = self.model(img_resized, conf=self.confidence_threshold, verbose=False)[0]
+                
+                # Save model output visualization if debugging is enabled
+                if self.save_debug_images and hasattr(results, 'plot'):
+                    try:
+                        # Plot the results using the model's built-in plotting
+                        plot_img = results.plot()
+                        save_debug_image(
+                            image=plot_img,
+                            debug_dir=self.debug_images_dir,
+                            prefix="plate_detector",
+                            suffix="model_output",
+                            draw_objects=None,
+                            draw_type=None
+                        )
+                    except Exception as e:
+                        print(f"Error plotting plate detection results: {e}")
         except Exception as e:
             raise InferenceError("plate_detector", e)
         
@@ -198,6 +228,43 @@ class PlateDetector(YOLOBase):
                                 day_plates.append(plate_info)
                             else:  # Night plate
                                 night_plates.append(plate_info)
+        
+        # Save debug images with both day and night plates if enabled
+        if self.save_debug_images:
+            # Create debug image with plate detections
+            debug_img = image.copy()
+            
+            # Draw day plates in green
+            for plate in day_plates:
+                corners = np.array(plate['corners'], dtype=np.int32)
+                cv2.polylines(debug_img, [corners], True, (0, 255, 0), 2)
+                
+                # Add "Day" label and confidence
+                if len(corners) > 0:
+                    x, y = corners[0]
+                    cv2.putText(debug_img, f"Day ({plate['confidence']:.2f})", (int(x), int(y) - 10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Draw night plates in blue
+            for plate in night_plates:
+                corners = np.array(plate['corners'], dtype=np.int32)
+                cv2.polylines(debug_img, [corners], True, (255, 0, 0), 2)
+                
+                # Add "Night" label and confidence
+                if len(corners) > 0:
+                    x, y = corners[0]
+                    cv2.putText(debug_img, f"Night ({plate['confidence']:.2f})", (int(x), int(y) - 10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            
+            # Save the debug image
+            save_debug_image(
+                image=debug_img,
+                debug_dir=self.debug_images_dir,
+                prefix="plate_detector",
+                suffix="processed_output",
+                draw_objects=None,
+                draw_type=None
+            )
         
         return {
             "day_plates": day_plates,

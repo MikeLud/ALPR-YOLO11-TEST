@@ -49,6 +49,17 @@ class ALPRAdapter(ModuleRunner):
         # Initialize statistics tracking
         self._plates_detected = 0
         self._histogram = {}
+        
+        # Create debug images directory if enabled
+        if self.config.save_debug_images and not os.path.exists(self.config.debug_images_dir):
+            os.makedirs(self.config.debug_images_dir, exist_ok=True)
+            self.log(LogMethod.Info | LogMethod.Server,
+            { 
+                "filename": __file__,
+                "loglevel": "information",
+                "method": sys._getframe().f_code.co_name,
+                "message": f"Debug images will be saved to {self.config.debug_images_dir}"
+            })
 
     def initialise(self):
         """Initialize the adapter and ALPR system"""
@@ -101,6 +112,16 @@ class ALPRAdapter(ModuleRunner):
                 "method": sys._getframe().f_code.co_name,
                 "message": f"Initializing ALPR system with models from {self.config.models_dir}"
             })
+            
+            # Log debug image settings
+            if self.config.save_debug_images:
+                self.log(LogMethod.Info | LogMethod.Server,
+                {
+                    "filename": __file__,
+                    "loglevel": "information", 
+                    "method": sys._getframe().f_code.co_name,
+                    "message": f"Debug image saving is enabled. Images will be saved to {self.config.debug_images_dir}"
+                })
             
             # Initialize the ALPR system
             self.alpr_system = ALPRSystem(self.config)
@@ -188,6 +209,17 @@ class ALPRAdapter(ModuleRunner):
         statusData = super().status()
         statusData["platesDetected"] = self._plates_detected
         statusData["histogram"] = self._histogram
+        
+        # Add debug images information
+        statusData["debugImagesEnabled"] = self.config.save_debug_images
+        if self.config.save_debug_images:
+            statusData["debugImagesDir"] = self.config.debug_images_dir
+            # Count the number of debug images if the directory exists
+            if os.path.exists(self.config.debug_images_dir):
+                debug_files = [f for f in os.listdir(self.config.debug_images_dir) 
+                              if f.endswith('.jpg') or f.endswith('.png')]
+                statusData["debugImagesCount"] = len(debug_files)
+        
         return statusData
 
     def selftest(self) -> JSON:
@@ -226,6 +258,10 @@ class ALPRAdapter(ModuleRunner):
             message = "ALPR system test successful"
             if result.get('count', 0) > 0:
                 message += f" - detected {result['count']} license plates"
+                
+                # Add debug images information if enabled
+                if self.config.save_debug_images:
+                    message += f". Debug images saved to {self.config.debug_images_dir}"
         else:
             message = "ALPR system test failed"
             

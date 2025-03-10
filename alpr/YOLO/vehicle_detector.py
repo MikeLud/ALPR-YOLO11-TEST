@@ -10,6 +10,7 @@ from ultralytics import YOLO
 from .base import YOLOBase
 from ..config import ALPRConfig
 from ..exceptions import ModelLoadingError, InferenceError, VehicleDetectionError
+from ..utils.image_processing import save_debug_image
 
 
 class VehicleDetector:
@@ -33,6 +34,8 @@ class VehicleDetector:
         self.vehicle_classifier_path = config.get_model_path("vehicle_classifier")
         self.vehicle_detector_confidence = config.vehicle_detector_confidence
         self.vehicle_classifier_confidence = config.vehicle_classifier_confidence
+        self.save_debug_images = config.save_debug_images
+        self.debug_images_dir = config.debug_images_dir
         
         # Model resolutions
         self.vehicle_detector_resolution = (640, 640)
@@ -52,7 +55,9 @@ class VehicleDetector:
                 use_onnx=config.use_onnx,
                 use_cuda=config.use_cuda,
                 resolution=self.vehicle_detector_resolution,
-                confidence=self.vehicle_detector_confidence
+                confidence=self.vehicle_detector_confidence,
+                save_debug_images=self.save_debug_images,
+                debug_images_dir=self.debug_images_dir
             )
         except Exception as e:
             raise ModelLoadingError(self.vehicle_detector_path, e)
@@ -64,7 +69,9 @@ class VehicleDetector:
                 use_onnx=config.use_onnx,
                 use_cuda=config.use_cuda,
                 resolution=self.vehicle_classifier_resolution,
-                confidence=self.vehicle_classifier_confidence
+                confidence=self.vehicle_classifier_confidence,
+                save_debug_images=self.save_debug_images,
+                debug_images_dir=self.debug_images_dir
             )
         except Exception as e:
             raise ModelLoadingError(self.vehicle_classifier_path, e)
@@ -116,6 +123,17 @@ class VehicleDetector:
         Returns:
             List of dictionaries with vehicle information
         """
+        # Save input image if debug is enabled
+        if self.save_debug_images:
+            save_debug_image(
+                image=image,
+                debug_dir=self.debug_images_dir,
+                prefix="vehicle_process",
+                suffix="input",
+                draw_objects=None,
+                draw_type=None
+            )
+        
         # Detect vehicles
         vehicles = self.detect_vehicles(image)
         
@@ -137,6 +155,34 @@ class VehicleDetector:
             except Exception as e:
                 # Skip this vehicle if classification fails
                 continue
+        
+        # Save final detection and classification results if debug is enabled
+        if self.save_debug_images and vehicle_results:
+            debug_img = image.copy()
+            
+            # Draw each detected and classified vehicle
+            for i, vehicle in enumerate(vehicle_results):
+                x1, y1, x2, y2 = vehicle["box"]
+                # Draw box
+                cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                
+                # Draw make/model
+                make_model = f"{vehicle['make']} {vehicle['model']}"
+                confidence = f"Det: {vehicle['confidence']:.2f}, Cls: {vehicle['classification_confidence']:.2f}"
+                cv2.putText(debug_img, make_model, (x1, y1-10), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                cv2.putText(debug_img, confidence, (x1, y1-30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            
+            # Save the debug image
+            save_debug_image(
+                image=debug_img,
+                debug_dir=self.debug_images_dir,
+                prefix="vehicle_result",
+                suffix=f"detected_{len(vehicle_results)}",
+                draw_objects=None,
+                draw_type=None
+            )
                 
         return vehicle_results
     
@@ -157,7 +203,8 @@ class VehicleDetectorYOLO(YOLOBase):
     """Vehicle detector using YOLOv8."""
     
     def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
-                 resolution: Tuple[int, int], confidence: float):
+                 resolution: Tuple[int, int], confidence: float,
+                 save_debug_images: bool = False, debug_images_dir: str = None):
         """
         Initialize the vehicle detector.
         
@@ -168,10 +215,14 @@ class VehicleDetectorYOLO(YOLOBase):
             use_cuda: Whether to use CUDA
             resolution: Input resolution for the model
             confidence: Confidence threshold
+            save_debug_images: Whether to save debug images
+            debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
         self.resolution = resolution
         self.confidence_threshold = confidence
+        self.save_debug_images = save_debug_images
+        self.debug_images_dir = debug_images_dir
     
     def detect(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """
@@ -185,6 +236,17 @@ class VehicleDetectorYOLO(YOLOBase):
         """
         # Resize image for vehicle detector
         img_resized = cv2.resize(image, self.resolution)
+        
+        # Save resized input image if debug is enabled
+        if self.save_debug_images:
+            save_debug_image(
+                image=img_resized,
+                debug_dir=self.debug_images_dir,
+                prefix="vehicle_detector",
+                suffix="resized_input",
+                draw_objects=None,
+                draw_type=None
+            )
         
         try:
             if self.use_onnx:
@@ -202,6 +264,22 @@ class VehicleDetectorYOLO(YOLOBase):
             conf=self.confidence_threshold, 
             verbose=False
         )[0]
+        
+        # Save model output visualization if debug is enabled
+        if self.save_debug_images and hasattr(results, 'plot'):
+            try:
+                # Plot the results using the model's built-in plotting
+                plot_img = results.plot()
+                save_debug_image(
+                    image=plot_img,
+                    debug_dir=self.debug_images_dir,
+                    prefix="vehicle_detector",
+                    suffix="model_output",
+                    draw_objects=None,
+                    draw_type=None
+                )
+            except Exception as e:
+                print(f"Error plotting vehicle detection results: {e}")
         
         # Process the results to extract vehicle bounding boxes
         vehicles = []
@@ -234,6 +312,17 @@ class VehicleDetectorYOLO(YOLOBase):
                 
                 # Extract the vehicle region
                 vehicle_img = original_image[y1:y2, x1:x2]
+                
+                # Save individual vehicle crop if debug is enabled
+                if self.save_debug_images:
+                    save_debug_image(
+                        image=vehicle_img,
+                        debug_dir=self.debug_images_dir,
+                        prefix="vehicle_crop",
+                        suffix=f"vehicle_{i}",
+                        draw_objects=None,
+                        draw_type=None
+                    )
                 
                 vehicles.append({
                     "box": [x1, y1, x2, y2],
@@ -292,6 +381,17 @@ class VehicleDetectorYOLO(YOLOBase):
                 # Extract vehicle image
                 vehicle_img = original_image[y1:y2, x1:x2]
                 
+                # Save individual vehicle crop if debug is enabled
+                if self.save_debug_images:
+                    save_debug_image(
+                        image=vehicle_img,
+                        debug_dir=self.debug_images_dir,
+                        prefix="vehicle_crop",
+                        suffix=f"vehicle_{i}_onnx",
+                        draw_objects=None,
+                        draw_type=None
+                    )
+                
                 # Store detection
                 vehicles.append({
                     "box": [x1, y1, x2, y2],
@@ -306,7 +406,8 @@ class VehicleClassifierYOLO(YOLOBase):
     """Vehicle classifier using YOLOv8."""
     
     def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
-                 resolution: Tuple[int, int], confidence: float):
+                 resolution: Tuple[int, int], confidence: float,
+                 save_debug_images: bool = False, debug_images_dir: str = None):
         """
         Initialize the vehicle classifier.
         
@@ -317,10 +418,14 @@ class VehicleClassifierYOLO(YOLOBase):
             use_cuda: Whether to use CUDA
             resolution: Input resolution for the model
             confidence: Confidence threshold
+            save_debug_images: Whether to save debug images
+            debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
         self.resolution = resolution
         self.confidence_threshold = confidence
+        self.save_debug_images = save_debug_images
+        self.debug_images_dir = debug_images_dir
     
     def classify(self, vehicle_image: np.ndarray) -> Dict[str, Any]:
         """
@@ -338,14 +443,55 @@ class VehicleClassifierYOLO(YOLOBase):
         # Resize vehicle image for classifier
         try:
             vehicle_resized = cv2.resize(vehicle_image, self.resolution)
+            
+            # Save resized vehicle image if debug is enabled
+            if self.save_debug_images:
+                save_debug_image(
+                    image=vehicle_resized,
+                    debug_dir=self.debug_images_dir,
+                    prefix="vehicle_classifier",
+                    suffix="resized_input",
+                    draw_objects=None,
+                    draw_type=None
+                )
         except Exception as e:
             raise VehicleDetectionError(f"Failed to resize vehicle image: {str(e)}")
         
         try:
             if self.use_onnx:
-                return self._classify_onnx(vehicle_resized)
+                result = self._classify_onnx(vehicle_resized)
             else:
-                return self._classify_pytorch(vehicle_resized)
+                result = self._classify_pytorch(vehicle_resized)
+                
+            # Save classification result visualization if debug is enabled
+            if self.save_debug_images:
+                # Create a visualization of the classification result
+                result_img = vehicle_resized.copy()
+                h, w = result_img.shape[:2]
+                
+                # Add a label at the bottom
+                label_bg = np.zeros((80, w, 3), dtype=np.uint8)
+                result_img = np.vstack([result_img, label_bg])
+                
+                # Draw the make and model
+                make_model = f"{result['make']} {result['model']}"
+                confidence = f"Confidence: {result['confidence']:.2f}"
+                
+                cv2.putText(result_img, make_model, (10, h+30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.putText(result_img, confidence, (10, h+60), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+                
+                save_debug_image(
+                    image=result_img,
+                    debug_dir=self.debug_images_dir,
+                    prefix="vehicle_classifier",
+                    suffix=f"result_{result['make']}_{result['model']}",
+                    draw_objects=None,
+                    draw_type=None
+                )
+                
+            return result
         except Exception as e:
             raise InferenceError("vehicle_classifier", e)
     

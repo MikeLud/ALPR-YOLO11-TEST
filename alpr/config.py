@@ -30,6 +30,10 @@ class ALPRConfig:
     plate_aspect_ratio: Optional[float] = 4.0
     corner_dilation_pixels: int = 5
     
+    # Debug options
+    save_debug_images: bool = False
+    debug_images_dir: str = field(default_factory=lambda: os.path.normpath(os.path.join(os.getcwd(), "debug_images")))
+    
     # Hardware acceleration
     use_cuda: bool = True
     use_mps: bool = True  # Apple Silicon GPU
@@ -58,6 +62,10 @@ class ALPRConfig:
             "vehicle_detector": os.path.join(models_directory, f"vehicle_detector{model_ext}"),
             "vehicle_classifier": os.path.join(models_directory, f"vehicle_classifier{model_ext}"),
         }
+        
+        # Create debug images directory if needed
+        if self.save_debug_images and not os.path.exists(self.debug_images_dir):
+            os.makedirs(self.debug_images_dir, exist_ok=True)
     
     def validate(self) -> None:
         """Validate the configuration values"""
@@ -102,11 +110,13 @@ class ALPRConfig:
                 "app_dir": self.app_dir,
                 "models_dir": self.models_dir,
                 "onnx_models_dir": self.onnx_models_dir if self.use_onnx else None,
+                "debug_images_dir": self.debug_images_dir if self.save_debug_images else None,
             },
             "features": {
                 "enable_state_detection": self.enable_state_detection,
                 "enable_vehicle_detection": self.enable_vehicle_detection,
                 "use_onnx": self.use_onnx,
+                "save_debug_images": self.save_debug_images,
             },
             "confidence_thresholds": {
                 "plate_detector": self.plate_detector_confidence,
@@ -155,6 +165,10 @@ def load_from_env() -> ALPRConfig:
     plate_aspect_ratio = float(plate_aspect_ratio_str) if plate_aspect_ratio_str and plate_aspect_ratio_str != "0" else None
     corner_dilation_pixels = int(ModuleOptions.getEnvVariable("CORNER_DILATION_PIXELS", "5"))
     
+    # Debug options
+    save_debug_images = ModuleOptions.getEnvVariable("SAVE_DEBUG_IMAGES", "False").lower() == "true"
+    debug_images_dir = os.path.normpath(ModuleOptions.getEnvVariable("DEBUG_IMAGES_DIR", f"{app_dir}/debug_images"))
+    
     # Hardware acceleration
     use_cuda = ModuleOptions.getEnvVariable("USE_CUDA", "True").lower() == "true"
     use_mps = True  # Default to true, will be checked for availability later
@@ -177,6 +191,8 @@ def load_from_env() -> ALPRConfig:
         vehicle_classifier_confidence=vehicle_classifier_confidence,
         plate_aspect_ratio=plate_aspect_ratio,
         corner_dilation_pixels=corner_dilation_pixels,
+        save_debug_images=save_debug_images,
+        debug_images_dir=debug_images_dir,
         use_cuda=use_cuda,
         use_mps=use_mps,
         use_directml=use_directml,

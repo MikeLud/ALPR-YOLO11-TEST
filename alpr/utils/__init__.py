@@ -7,5 +7,6 @@ from .image_processing import (
     resize_image,
     order_points,
     four_point_transform,
-    dilate_corners
+    dilate_corners,
+    save_debug_image
 )

@@ -1,8 +1,11 @@
 """
 Image processing utilities for the ALPR system.
 """
+import os
 import cv2
 import numpy as np
+import time
+from datetime import datetime
 from typing import List, Tuple, Optional, Union
 
 from ..exceptions import ImageProcessingError
@@ -184,3 +187,104 @@ def dilate_corners(
         return dilated_corners
     except Exception as e:
         raise ImageProcessingError("dilate_corners", e)
+
+
+def save_debug_image(
+    image: np.ndarray,
+    debug_dir: str,
+    prefix: str,
+    suffix: str = "",
+    draw_objects: List[dict] = None,
+    draw_type: str = None
+) -> str:
+    """
+    Save an image for debugging purposes with optional object annotations.
+    
+    Args:
+        image: Input image as numpy array (BGR format)
+        debug_dir: Directory to save debug images
+        prefix: Prefix for the filename (usually the model name)
+        suffix: Optional suffix for the filename
+        draw_objects: Optional list of objects to annotate (e.g., plates, characters, vehicles)
+        draw_type: Type of objects to draw ('plates', 'characters', 'vehicles')
+        
+    Returns:
+        Path to the saved image
+        
+    Raises:
+        ImageProcessingError: If saving fails
+    """
+    try:
+        # Create a copy of the image to avoid modifying the original
+        debug_image = image.copy()
+        
+        # Draw detected objects if provided
+        if draw_objects and draw_type:
+            if draw_type == 'plates':
+                # Draw license plates
+                for plate in draw_objects:
+                    if 'corners' in plate:
+                        # Draw plate corners
+                        corners = np.array(plate['corners'], dtype=np.int32)
+                        cv2.polylines(debug_image, [corners], True, (0, 255, 0), 2)
+                        
+                        # Add plate number if available
+                        if 'license_number' in plate:
+                            # Get top-left corner position
+                            x = int(np.min(corners[:, 0]))
+                            y = int(np.min(corners[:, 1])) - 10
+                            plate_text = f"{plate['license_number']} ({plate['confidence']:.2f})"
+                            cv2.putText(debug_image, plate_text, (x, y), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    
+                    elif 'detection_box' in plate:
+                        # Draw plate box if corners not available
+                        x1, y1, x2, y2 = plate['detection_box']
+                        cv2.rectangle(debug_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            elif draw_type == 'characters':
+                # Draw character boxes
+                for char in draw_objects:
+                    if 'box' in char:
+                        x1, y1, x2, y2 = char['box']
+                        cv2.rectangle(debug_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        
+                        # Add character and confidence if available
+                        if 'char' in char:
+                            char_text = f"{char['char']} ({char['confidence']:.2f})"
+                            cv2.putText(debug_image, char_text, (x1, y1 - 5), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            
+            elif draw_type == 'vehicles':
+                # Draw vehicle boxes
+                for vehicle in draw_objects:
+                    if 'box' in vehicle:
+                        x1, y1, x2, y2 = vehicle['box']
+                        cv2.rectangle(debug_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
+                        
+                        # Add make/model and confidence if available
+                        if 'make' in vehicle and 'model' in vehicle:
+                            vehicle_text = f"{vehicle['make']} {vehicle['model']} ({vehicle['confidence']:.2f})"
+                            cv2.putText(debug_image, vehicle_text, (x1, y1 - 5), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+        
+        # Create a unique filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        filename = f"{prefix}_{timestamp}"
+        if suffix:
+            filename += f"_{suffix}"
+        filename += ".jpg"
+        
+        # Ensure the debug directory exists
+        os.makedirs(debug_dir, exist_ok=True)
+        
+        # Save the image
+        output_path = os.path.join(debug_dir, filename)
+        cv2.imwrite(output_path, debug_image)
+        
+        return output_path
+    
+    except Exception as e:
+        # Log the error but don't raise - debug images are not critical
+        print(f"Error saving debug image: {str(e)}")
+        return ""

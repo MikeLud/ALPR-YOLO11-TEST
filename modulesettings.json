@@ -41,7 +41,9 @@
         "PLATE_ASPECT_RATIO"        : "4.0",
         "CORNER_DILATION_PIXELS"    : "5",
         "USE_ONNX"                  : "False",
-        "ONNX_MODELS_DIR"           : "%CURRENT_MODULE_PATH%/models/onnx"
+        "ONNX_MODELS_DIR"           : "%CURRENT_MODULE_PATH%/models/onnx",
+        "SAVE_DEBUG_IMAGES"         : "False",
+        "DEBUG_IMAGES_DIR"          : "%CURRENT_MODULE_PATH%/debug_images"
       },
 
       "GpuOptions" : {
@@ -84,6 +86,21 @@
           "Options": [
             { "Label": "Enable vehicle detection",  "Setting": "ENABLE_VEHICLE_DETECTION", "Value": "True" },
             { "Label": "Disable vehicle detection", "Setting": "ENABLE_VEHICLE_DETECTION", "Value": "False" }
+          ]
+        },
+        {
+          "Label": "Debug Image Saving",
+          "Options": [
+            { "Label": "Disable debug images (Default)", "Setting": "SAVE_DEBUG_IMAGES", "Value": "False" },
+            { "Label": "Enable debug images", "Setting": "SAVE_DEBUG_IMAGES", "Value": "True" }
+          ]
+        },
+        {
+          "Label": "Debug Images Directory",
+          "Options": [
+            { "Label": "Default location", "Setting": "DEBUG_IMAGES_DIR", "Value": "%CURRENT_MODULE_PATH%/debug_images" },
+            { "Label": "Data directory", "Setting": "DEBUG_IMAGES_DIR", "Value": "%DATA_DIR%/alpr_debug_images" },
+            { "Label": "Logs directory", "Setting": "DEBUG_IMAGES_DIR", "Value": "%LOGS_DIR%/alpr_debug_images" }
           ]
         },
         {

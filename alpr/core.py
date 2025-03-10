@@ -1,6 +1,7 @@
 """
 Core ALPR system that coordinates the detection and recognition pipeline.
 """
+import os
 import cv2
 import numpy as np
 import time
@@ -13,7 +14,7 @@ from .YOLO.plate_detector import PlateDetector
 from .YOLO.character_detector import CharacterDetector
 from .YOLO.state_classifier import StateClassifier
 from .YOLO.vehicle_detector import VehicleDetector
-from .utils.image_processing import four_point_transform
+from .utils.image_processing import four_point_transform, save_debug_image
 
 
 class ALPRSystem:
@@ -33,6 +34,10 @@ class ALPRSystem:
             ModelLoadingError: If any model fails to load
         """
         self.config = config
+        
+        # Create debug directory if needed
+        if config.save_debug_images and not os.path.exists(config.debug_images_dir):
+            os.makedirs(config.debug_images_dir, exist_ok=True)
         
         # Initialize detector components
         self.plate_detector = PlateDetector(config)
@@ -57,7 +62,28 @@ class ALPRSystem:
         Returns:
             Dictionary with 'day_plates' and 'night_plates' lists
         """
-        return self.plate_detector.detect(image)
+        plate_detections = self.plate_detector.detect(image)
+        
+        # Save debug image if enabled
+        if self.config.save_debug_images:
+            # Combine day and night plates for visualization
+            all_plates = []
+            all_plates.extend([{'corners': plate['corners'], 'is_day_plate': True, 'confidence': plate['confidence']} 
+                              for plate in plate_detections['day_plates']])
+            all_plates.extend([{'corners': plate['corners'], 'is_day_plate': False, 'confidence': plate['confidence']} 
+                              for plate in plate_detections['night_plates']])
+            
+            # Save debug image with plate detections
+            save_debug_image(
+                image=image,
+                debug_dir=self.config.debug_images_dir,
+                prefix="plate_detector",
+                suffix="detection",
+                draw_objects=all_plates,
+                draw_type="plates"
+            )
+        
+        return plate_detections
     
     def process_plate(self, 
                      image: np.ndarray, 
@@ -79,6 +105,18 @@ class ALPRSystem:
         
         # Crop the license plate using 4-point transform
         plate_image = four_point_transform(image, plate_corners, self.config.plate_aspect_ratio)
+        
+        # Save debug image of the cropped plate if enabled
+        if self.config.save_debug_images:
+            plate_type = "day" if is_day_plate else "night"
+            save_debug_image(
+                image=plate_image,
+                debug_dir=self.config.debug_images_dir,
+                prefix="plate_crop",
+                suffix=f"{plate_type}_plate",
+                draw_objects=None,
+                draw_type=None
+            )
         
         # Initialize result dictionary
         plate_result = {
@@ -102,9 +140,37 @@ class ALPRSystem:
             state_result = self.state_classifier.classify(plate_image)
             plate_result["state"] = state_result["state"]
             plate_result["state_confidence"] = state_result["confidence"]
+            
+            # Save debug image with state classification result if enabled
+            if self.config.save_debug_images:
+                # Add state information to the plate image as text
+                state_debug_img = plate_image.copy()
+                state_text = f"State: {state_result['state']} ({state_result['confidence']:.2f})"
+                cv2.putText(state_debug_img, state_text, (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                
+                save_debug_image(
+                    image=state_debug_img,
+                    debug_dir=self.config.debug_images_dir,
+                    prefix="state_classifier",
+                    suffix=f"{state_result['state']}",
+                    draw_objects=None,
+                    draw_type=None
+                )
         
         # Detect and recognize characters in the plate
         char_result = self.character_detector.process_plate(plate_image)
+        
+        # Save debug image with character detections if enabled
+        if self.config.save_debug_images:
+            save_debug_image(
+                image=plate_image,
+                debug_dir=self.config.debug_images_dir,
+                prefix="char_detector",
+                suffix=f"{char_result['license_number']}",
+                draw_objects=char_result['characters'],
+                draw_type="characters"
+            )
         
         # Update plate result with character recognition data
         plate_result.update({
@@ -179,6 +245,17 @@ class ALPRSystem:
         if results["day_plates"] and self.vehicle_detector:
             vehicle_results = self.vehicle_detector.detect_and_classify(image_copy)
             results["vehicles"] = vehicle_results
+            
+            # Save debug image with vehicle detections if enabled
+            if self.config.save_debug_images and vehicle_results:
+                save_debug_image(
+                    image=image_copy,
+                    debug_dir=self.config.debug_images_dir,
+                    prefix="vehicle_detector",
+                    suffix="detection",
+                    draw_objects=vehicle_results,
+                    draw_type="vehicles"
+                )
         
         # Add timing information
         results["processing_time_ms"] = int((time.perf_counter() - start_time) * 1000)
@@ -205,6 +282,17 @@ class ALPRSystem:
         # Convert RGB to BGR (OpenCV format)
         if len(image_np.shape) == 3 and image_np.shape[2] == 3:  # Color image
             image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+        
+        # Save input image for debugging if enabled
+        if self.config.save_debug_images:
+            save_debug_image(
+                image=image_np,
+                debug_dir=self.config.debug_images_dir,
+                prefix="input",
+                suffix="original",
+                draw_objects=None,
+                draw_type=None
+            )
         
         # Process the image
         start_inference_time = time.perf_counter()
@@ -277,6 +365,29 @@ class ALPRSystem:
                         plate_data["top_plates"] = plate["top_plates"]
                         
                     plates.append(plate_data)
+        
+        # Save final result image with all plates if enabled
+        if self.config.save_debug_images and plates:
+            # Draw all detected plates on the original image
+            final_results = []
+            for plate in plates:
+                final_results.append({
+                    'corners': [[plate['x_min'], plate['y_min']], 
+                               [plate['x_max'], plate['y_min']], 
+                               [plate['x_max'], plate['y_max']], 
+                               [plate['x_min'], plate['y_max']]],
+                    'license_number': plate['plate'],
+                    'confidence': plate['confidence']
+                })
+                
+            save_debug_image(
+                image=image_np,
+                debug_dir=self.config.debug_images_dir,
+                prefix="final",
+                suffix="result",
+                draw_objects=final_results,
+                draw_type="plates"
+            )
         
         # Create a response message
         if len(plates) > 0:

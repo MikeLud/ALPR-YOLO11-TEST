@@ -28,6 +28,10 @@ class Options:
         self.plate_aspect_ratio      = ModuleOptions.getEnvVariable("PLATE_ASPECT_RATIO", "4.0")
         self.corner_dilation_pixels  = ModuleOptions.getEnvVariable("CORNER_DILATION_PIXELS", "5")
 
+        # Debug options
+        self.save_debug_images       = ModuleOptions.getEnvVariable("SAVE_DEBUG_IMAGES", "False").lower() == "true"
+        self.debug_images_dir        = os.path.normpath(ModuleOptions.getEnvVariable("DEBUG_IMAGES_DIR", f"{self.app_dir}/debug_images"))
+        
         # Model format
         self.use_onnx            = ModuleOptions.getEnvVariable("USE_ONNX", "False").lower() == "true"
         self.onnx_models_dir     = os.path.normpath(ModuleOptions.getEnvVariable("ONNX_MODELS_DIR", f"{self.app_dir}/models/onnx"))
@@ -48,3 +52,5 @@ class Options:
             print(f"Debug: ONNX_MODELS_DIR: {self.onnx_models_dir}")
             print(f"Debug: ENABLE_STATE_DETECTION: {self.enable_state_detection}")
             print(f"Debug: ENABLE_VEHICLE_DETECTION: {self.enable_vehicle_detection}")
+            print(f"Debug: SAVE_DEBUG_IMAGES: {self.save_debug_images}")
+            print(f"Debug: DEBUG_IMAGES_DIR: {self.debug_images_dir}")
