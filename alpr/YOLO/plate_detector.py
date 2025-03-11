@@ -34,7 +34,6 @@ class PlateDetector(YOLOBase):
         self.model_path = config.get_model_path("plate_detector")
         self.confidence_threshold = config.plate_detector_confidence
         self.corner_dilation_pixels = config.corner_dilation_pixels
-        self.resolution = (640, 640)  # Standard YOLOv8 input resolution
         self.save_debug_images = config.save_debug_images
         self.debug_images_dir = config.debug_images_dir
         
@@ -62,28 +61,27 @@ class PlateDetector(YOLOBase):
         Raises:
             InferenceError: If detection fails
         """
-        # Resize image for plate detector
+        # Get original image dimensions
         h, w = image.shape[:2]
-        img_resized = cv2.resize(image, self.resolution)
-
         
-        # Save resized image for debugging if enabled
+        # Save input image for debugging if enabled
         if self.save_debug_images:
             save_debug_image(
-                image=img_resized,
+                image=image,
                 debug_dir=self.debug_images_dir,
                 prefix="plate_detector",
-                suffix="resized_input",
+                suffix="input",
                 draw_objects=None,
                 draw_type=None
             )
         
         try:
             if self.use_onnx:
-                results = self._detect_onnx(img_resized)
+                results = self._detect_onnx(image)
             else:
                 # Run YOLOv8 keypoint detection model to detect plate corners
-                results = self.model(img_resized, conf=self.confidence_threshold, verbose=False)[0]
+                # Use original image without resizing
+                results = self.model(image, conf=self.confidence_threshold, verbose=False)[0]
                 
                 # Save model output visualization if debugging is enabled
                 if self.save_debug_images and hasattr(results, 'plot'):
@@ -122,33 +120,30 @@ class PlateDetector(YOLOBase):
                             box = results['boxes'][i]
                             x1, y1, x2, y2 = box
                             detection_box = [
-                                int(x1 * w / self.resolution[0]) - 15,
-                                int(y1 * h / self.resolution[1]) - 15,
-                                int(x2 * w / self.resolution[0]) + 15,
-                                int(y2 * h / self.resolution[1]) + 15
+                                int(x1) - 15,
+                                int(y1) - 15,
+                                int(x2) + 15,
+                                int(y2) + 15
                             ]
                         
-                        # Scale keypoints to original image size
-                        scaled_corners = []
+                        # Use keypoints directly without scaling
+                        corners = []
                         for kp in keypoints[:4]:
                             if len(kp) >= 2:
                                 x, y = kp[0], kp[1]
-                                scaled_corners.append([
-                                    float(x * w / self.resolution[0]),
-                                    float(y * h / self.resolution[1])
-                                ])
+                                corners.append([float(x), float(y)])
                             else:
-                                scaled_corners.append([0.0, 0.0])
+                                corners.append([0.0, 0.0])
                         
                         # Convert to numpy array for dilation
-                        scaled_corners_np = np.array(scaled_corners, dtype=np.float32)
+                        corners_np = np.array(corners, dtype=np.float32)
                         
                         # Apply dilation to the corners
-                        dilated_corners_np = dilate_corners(scaled_corners_np, self.corner_dilation_pixels)
+                        dilated_corners_np = dilate_corners(corners_np, self.corner_dilation_pixels)
                         
                         # Convert back to list format
                         dilated_corners = dilated_corners_np.tolist()
-                        original_corners = scaled_corners.copy()
+                        original_corners = corners.copy()
                         
                         plate_info = {
                             "corners": dilated_corners,
@@ -170,10 +165,7 @@ class PlateDetector(YOLOBase):
                         # Get the 4 corner points
                         corners = keypoints[:4].cpu().numpy()  # Format: [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
                         
-                        # Scale the keypoints back to original image size
-                        scale_x = w / self.resolution[0]
-                        scale_y = h / self.resolution[1]
-                        
+                        # No scaling needed since we're using original image
                         scaled_corners = []
                         for corner in corners:
                             # Handle different possible formats of keypoint data
@@ -183,7 +175,7 @@ class PlateDetector(YOLOBase):
                                 else:
                                     x, y = corner
                                 
-                                scaled_corners.append([float(x * scale_x), float(y * scale_y)])
+                                scaled_corners.append([float(x), float(y)])
                             except Exception as e:
                                 # Use a default value to avoid breaking the pipeline
                                 scaled_corners.append([0.0, 0.0])
@@ -204,12 +196,12 @@ class PlateDetector(YOLOBase):
                         detection_box = None
                         if hasattr(results.boxes, 'xyxy') and i < len(results.boxes.xyxy):
                             box = results.boxes.xyxy[i].cpu().numpy()
-                            # Scale box coordinates
+                            # Add padding to the box
                             x1, y1, x2, y2 = box
-                            x1 = int(x1 * scale_x) - 15
-                            y1 = int(y1 * scale_y) - 15
-                            x2 = int(x2 * scale_x) + 15
-                            y2 = int(y2 * scale_y) + 15
+                            x1 = int(x1) - 15
+                            y1 = int(y1) - 15
+                            x2 = int(x2) + 15
+                            y2 = int(y2) + 15
                             detection_box = [x1, y1, x2, y2]  # [x1, y1, x2, y2] format
                         
                         # Determine if it's a day plate or night plate based on the class
@@ -276,13 +268,13 @@ class PlateDetector(YOLOBase):
         Detect plates using ONNX model.
         
         Args:
-            image: Input image resized to model resolution
+            image: Input image
             
         Returns:
             Dictionary with detection results
         """
-        # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(image, self.resolution)
+        # Preprocess image for ONNX without resizing
+        input_tensor = self._preprocess_image(image)
         
         # Run inference
         outputs = self.onnx_session.run(

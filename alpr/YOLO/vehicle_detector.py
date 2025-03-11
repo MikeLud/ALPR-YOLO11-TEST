@@ -37,8 +37,7 @@ class VehicleDetector:
         self.save_debug_images = config.save_debug_images
         self.debug_images_dir = config.debug_images_dir
         
-        # Model resolutions
-        self.vehicle_detector_resolution = (640, 640)
+        # Vehicle classifier still needs a fixed resolution
         self.vehicle_classifier_resolution = (224, 224)
         
         # Skip initialization if vehicle detection is disabled
@@ -54,7 +53,6 @@ class VehicleDetector:
                 task='detect',
                 use_onnx=config.use_onnx,
                 use_cuda=config.use_cuda,
-                resolution=self.vehicle_detector_resolution,
                 confidence=self.vehicle_detector_confidence,
                 save_debug_images=self.save_debug_images,
                 debug_images_dir=self.debug_images_dir
@@ -203,8 +201,7 @@ class VehicleDetectorYOLO(YOLOBase):
     """Vehicle detector using YOLOv8."""
     
     def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
-                 resolution: Tuple[int, int], confidence: float,
-                 save_debug_images: bool = False, debug_images_dir: str = None):
+                 confidence: float, save_debug_images: bool = False, debug_images_dir: str = None):
         """
         Initialize the vehicle detector.
         
@@ -213,13 +210,11 @@ class VehicleDetectorYOLO(YOLOBase):
             task: Task type ('detect')
             use_onnx: Whether to use ONNX model
             use_cuda: Whether to use CUDA
-            resolution: Input resolution for the model
             confidence: Confidence threshold
             save_debug_images: Whether to save debug images
             debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
-        self.resolution = resolution
         self.confidence_threshold = confidence
         self.save_debug_images = save_debug_images
         self.debug_images_dir = debug_images_dir
@@ -234,33 +229,30 @@ class VehicleDetectorYOLO(YOLOBase):
         Returns:
             List of vehicle detections
         """
-        # Resize image for vehicle detector
-        img_resized = cv2.resize(image, self.resolution)
-        
-        # Save resized input image if debug is enabled
+        # Save input image if debug is enabled
         if self.save_debug_images:
             save_debug_image(
-                image=img_resized,
+                image=image,
                 debug_dir=self.debug_images_dir,
                 prefix="vehicle_detector",
-                suffix="resized_input",
+                suffix="input",
                 draw_objects=None,
                 draw_type=None
             )
         
         try:
             if self.use_onnx:
-                return self._detect_onnx(image, img_resized)
+                return self._detect_onnx(image)
             else:
-                return self._detect_pytorch(image, img_resized)
+                return self._detect_pytorch(image)
         except Exception as e:
             raise InferenceError("vehicle_detector", e)
     
-    def _detect_pytorch(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect vehicles using PyTorch model"""
-        # Run vehicle detection model
+    def _detect_pytorch(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect vehicles using PyTorch model without resizing"""
+        # Run vehicle detection model using original image
         results = self.model(
-            resized_image, 
+            image, 
             conf=self.confidence_threshold, 
             verbose=False
         )[0]
@@ -288,17 +280,14 @@ class VehicleDetectorYOLO(YOLOBase):
             for i, box in enumerate(results.boxes.xyxy):
                 x1, y1, x2, y2 = box.cpu().numpy()
                 
-                # Scale the coordinates back to the original image size
-                h, w = original_image.shape[:2]
-                scale_x = w / self.resolution[0]
-                scale_y = h / self.resolution[1]
-                
-                x1 = int(x1 * scale_x)
-                y1 = int(y1 * scale_y)
-                x2 = int(x2 * scale_x)
-                y2 = int(y2 * scale_y)
+                # Convert to integers
+                x1 = int(x1)
+                y1 = int(y1)
+                x2 = int(x2)
+                y2 = int(y2)
                 
                 # Ensure the box coordinates are within the image bounds
+                h, w = image.shape[:2]
                 x1 = max(0, x1)
                 y1 = max(0, y1)
                 x2 = min(w, x2)
@@ -311,7 +300,7 @@ class VehicleDetectorYOLO(YOLOBase):
                 confidence = float(results.boxes.conf[i].item()) if hasattr(results.boxes, 'conf') else 0.0
                 
                 # Extract the vehicle region
-                vehicle_img = original_image[y1:y2, x1:x2]
+                vehicle_img = image[y1:y2, x1:x2]
                 
                 # Save individual vehicle crop if debug is enabled
                 if self.save_debug_images:
@@ -332,10 +321,10 @@ class VehicleDetectorYOLO(YOLOBase):
         
         return vehicles
     
-    def _detect_onnx(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
-        """Detect vehicles using ONNX model"""
+    def _detect_onnx(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """Detect vehicles using ONNX model without resizing"""
         # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(resized_image, self.resolution)
+        input_tensor = self._preprocess_image(image)
         
         # Run inference
         outputs = self.onnx_session.run(
@@ -352,34 +341,28 @@ class VehicleDetectorYOLO(YOLOBase):
         vehicles = []
         
         if boxes is not None:
-            h, w = original_image.shape[:2]
+            h, w = image.shape[:2]
             
             for i in range(len(boxes)):
                 # Skip detections below confidence threshold
                 if scores is not None and scores[i] < self.confidence_threshold:
                     continue
                 
-                # Get box coordinates
+                # Get box coordinates - use as is since we're not resizing
                 x1, y1, x2, y2 = boxes[i]
                 
-                # Scale coordinates to original image
-                x1 = int(x1 * w / self.resolution[0])
-                y1 = int(y1 * h / self.resolution[1])
-                x2 = int(x2 * w / self.resolution[0])
-                y2 = int(y2 * h / self.resolution[1])
-                
-                # Ensure coordinates are within image bounds
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
+                # Convert to integers and ensure coordinates are within image bounds
+                x1 = max(0, int(x1))
+                y1 = max(0, int(y1))
+                x2 = min(w, int(x2))
+                y2 = min(h, int(y2))
                 
                 # Skip invalid boxes
                 if x1 >= x2 or y1 >= y2:
                     continue
                 
                 # Extract vehicle image
-                vehicle_img = original_image[y1:y2, x1:x2]
+                vehicle_img = image[y1:y2, x1:x2]
                 
                 # Save individual vehicle crop if debug is enabled
                 if self.save_debug_images:
@@ -422,6 +405,7 @@ class VehicleClassifierYOLO(YOLOBase):
             debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
+        # Keep resolution for ONNX preprocessing or if specific size is needed for classification
         self.resolution = resolution
         self.confidence_threshold = confidence
         self.save_debug_images = save_debug_images
@@ -440,33 +424,27 @@ class VehicleClassifierYOLO(YOLOBase):
         if vehicle_image.size == 0:
             return {"make": "Unknown", "model": "Unknown", "confidence": 0.0}
         
-        # Resize vehicle image for classifier
-        try:
-            vehicle_resized = cv2.resize(vehicle_image, self.resolution)
-            
-            # Save resized vehicle image if debug is enabled
-            if self.save_debug_images:
-                save_debug_image(
-                    image=vehicle_resized,
-                    debug_dir=self.debug_images_dir,
-                    prefix="vehicle_classifier",
-                    suffix="resized_input",
-                    draw_objects=None,
-                    draw_type=None
-                )
-        except Exception as e:
-            raise VehicleDetectionError(f"Failed to resize vehicle image: {str(e)}")
+        # Save vehicle image for debugging if enabled
+        if self.save_debug_images:
+            save_debug_image(
+                image=vehicle_image,
+                debug_dir=self.debug_images_dir,
+                prefix="vehicle_classifier",
+                suffix="input",
+                draw_objects=None,
+                draw_type=None
+            )
         
         try:
             if self.use_onnx:
-                result = self._classify_onnx(vehicle_resized)
+                result = self._classify_onnx(vehicle_image)
             else:
-                result = self._classify_pytorch(vehicle_resized)
+                result = self._classify_pytorch(vehicle_image)
                 
             # Save classification result visualization if debug is enabled
             if self.save_debug_images:
                 # Create a visualization of the classification result
-                result_img = vehicle_resized.copy()
+                result_img = vehicle_image.copy()
                 h, w = result_img.shape[:2]
                 
                 # Add a label at the bottom
@@ -496,8 +474,8 @@ class VehicleClassifierYOLO(YOLOBase):
             raise InferenceError("vehicle_classifier", e)
     
     def _classify_pytorch(self, vehicle_image: np.ndarray) -> Dict[str, Any]:
-        """Classify vehicle using PyTorch model"""
-        # Run vehicle classification model
+        """Classify vehicle using PyTorch model without resizing"""
+        # Run vehicle classification model without resizing
         results = self.model(
             vehicle_image, 
             conf=self.confidence_threshold, 
@@ -522,8 +500,8 @@ class VehicleClassifierYOLO(YOLOBase):
     
     def _classify_onnx(self, vehicle_image: np.ndarray) -> Dict[str, Any]:
         """Classify vehicle using ONNX model"""
-        # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(vehicle_image, self.resolution)
+        # Preprocess image for ONNX without resizing
+        input_tensor = self._preprocess_image(vehicle_image)
         
         # Run inference
         outputs = self.onnx_session.run(

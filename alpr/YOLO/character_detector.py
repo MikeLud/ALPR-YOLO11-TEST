@@ -37,8 +37,7 @@ class CharacterDetector:
         self.save_debug_images = config.save_debug_images
         self.debug_images_dir = config.debug_images_dir
         
-        # Model resolutions
-        self.char_detector_resolution = (160, 160)
+        # Character classifier still needs a fixed resolution
         self.char_classifier_resolution = (32, 32)
         
         # Initialize the detector model
@@ -48,7 +47,6 @@ class CharacterDetector:
                 task='detect',
                 use_onnx=config.use_onnx,
                 use_cuda=config.use_cuda,
-                resolution=self.char_detector_resolution,
                 confidence=self.char_detector_confidence,
                 save_debug_images=self.save_debug_images,
                 debug_images_dir=self.debug_images_dir
@@ -552,6 +550,8 @@ class CharacterDetector:
         Returns:
             Dictionary with character detections and plate number
         """
+        
+        
         # Add the original plate image to debug info if needed
         if self.save_debug_images:
             save_debug_image(
@@ -725,23 +725,20 @@ class CharDetector(YOLOBase):
     """Character detector for license plates using YOLOv8 or ONNX."""
     
     def __init__(self, model_path: str, task: str, use_onnx: bool, use_cuda: bool, 
-                 resolution: Tuple[int, int], confidence: float, 
-                 save_debug_images: bool = False, debug_images_dir: str = None):
+                 confidence: float, save_debug_images: bool = False, debug_images_dir: str = None):
         """
         Initialize the character detector.
         
         Args:
             model_path: Path to the model file
             task: Task type
-            use_onnx: Whether to use ONNX
+            use_onnx: Whether to use ONNX model
             use_cuda: Whether to use CUDA
-            resolution: Input resolution for the model
             confidence: Confidence threshold
             save_debug_images: Whether to save debug images
             debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
-        self.resolution = resolution
         self.confidence_threshold = confidence
         self.save_debug_images = save_debug_images
         self.debug_images_dir = debug_images_dir
@@ -756,33 +753,30 @@ class CharDetector(YOLOBase):
         Returns:
             List of character detections
         """
-        # Resize plate image for detector
-        plate_resized = cv2.resize(plate_image, self.resolution)
-        
-        # Save resized input image if debug is enabled
+        # Save input image if debug is enabled
         if self.save_debug_images:
             save_debug_image(
-                image=plate_resized,
+                image=plate_image,
                 debug_dir=self.debug_images_dir,
                 prefix="char_detector",
-                suffix="resized_input",
+                suffix="input",
                 draw_objects=None,
                 draw_type=None
             )
         
         try:
             if self.use_onnx:
-                return self._detect_onnx(plate_image, plate_resized)
+                return self._detect_onnx(plate_image)
             else:
-                return self._detect_pytorch(plate_image, plate_resized)
+                return self._detect_pytorch(plate_image)
         except Exception as e:
             raise InferenceError("char_detector", e)
     
-    def _detect_pytorch(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
+    def _detect_pytorch(self, plate_image: np.ndarray) -> List[Dict[str, Any]]:
         """Detect characters using PyTorch model"""
-        # Run character detection model
+        # Run character detection model without resizing
         results = self.model.predict(
-            resized_image, 
+            plate_image, 
             conf=self.confidence_threshold, 
             verbose=False
         )[0]
@@ -810,17 +804,14 @@ class CharDetector(YOLOBase):
             for i, box in enumerate(results.boxes.xyxy):
                 x1, y1, x2, y2 = box.cpu().numpy()
                 
-                # Scale the coordinates back to the original plate image size
-                h, w = original_image.shape[:2]
-                scale_x = w / self.resolution[0]
-                scale_y = h / self.resolution[1]
-                
-                x1 = int(x1 * scale_x)
-                y1 = int(y1 * scale_y)
-                x2 = int(x2 * scale_x)
-                y2 = int(y2 * scale_y)
+                # Convert to integers
+                x1 = int(x1)
+                y1 = int(y1)
+                x2 = int(x2)
+                y2 = int(y2)
                 
                 # Ensure the box coordinates are within the image bounds
+                h, w = plate_image.shape[:2]
                 x1 = max(0, x1)
                 y1 = max(0, y1)
                 x2 = min(w, x2)
@@ -833,7 +824,7 @@ class CharDetector(YOLOBase):
                 confidence = float(results.boxes.conf[i].item()) if hasattr(results.boxes, 'conf') else 0.0
                 
                 # Extract the character region
-                char_img = original_image[y1:y2, x1:x2]
+                char_img = plate_image[y1:y2, x1:x2]
                 
                 # Save individual character crop if debug is enabled
                 if self.save_debug_images:
@@ -854,10 +845,10 @@ class CharDetector(YOLOBase):
         
         return characters
     
-    def _detect_onnx(self, original_image: np.ndarray, resized_image: np.ndarray) -> List[Dict[str, Any]]:
+    def _detect_onnx(self, plate_image: np.ndarray) -> List[Dict[str, Any]]:
         """Detect characters using ONNX model"""
-        # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(resized_image, self.resolution)
+        # Preprocess image for ONNX without resizing
+        input_tensor = self._preprocess_image(plate_image)
         
         # Run inference
         outputs = self.onnx_session.run(
@@ -875,34 +866,28 @@ class CharDetector(YOLOBase):
         characters = []
         
         if boxes is not None:
-            h, w = original_image.shape[:2]
+            h, w = plate_image.shape[:2]
             
             for i in range(len(boxes)):
                 # Skip detections below confidence threshold
                 if scores is not None and scores[i] < self.confidence_threshold:
                     continue
                 
-                # Get box coordinates
+                # Get box coordinates - original coordinates since we're not resizing
                 x1, y1, x2, y2 = boxes[i]
                 
-                # Scale coordinates to original image
-                x1 = int(x1 * w / self.resolution[0])
-                y1 = int(y1 * h / self.resolution[1])
-                x2 = int(x2 * w / self.resolution[0])
-                y2 = int(y2 * h / self.resolution[1])
-                
-                # Ensure coordinates are within image bounds
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
+                # Convert to integers and ensure coordinates are within image bounds
+                x1 = max(0, int(x1))
+                y1 = max(0, int(y1))
+                x2 = min(w, int(x2))
+                y2 = min(h, int(y2))
                 
                 # Skip invalid boxes
                 if x1 >= x2 or y1 >= y2:
                     continue
                 
                 # Extract character image
-                char_img = original_image[y1:y2, x1:x2]
+                char_img = plate_image[y1:y2, x1:x2]
                 
                 # Save individual character crop if debug is enabled
                 if self.save_debug_images:
@@ -937,7 +922,7 @@ class CharClassifier(YOLOBase):
         Args:
             model_path: Path to the model file
             task: Task type
-            use_onnx: Whether to use ONNX
+            use_onnx: Whether to use ONNX model
             use_cuda: Whether to use CUDA
             resolution: Input resolution for the model
             confidence: Confidence threshold
@@ -945,7 +930,7 @@ class CharClassifier(YOLOBase):
             debug_images_dir: Directory for debug images
         """
         super().__init__(model_path, task, use_onnx, use_cuda)
-        self.resolution = resolution
+        self.resolution = resolution  # Keep this for character classification, as specific size may be needed
         self.confidence_threshold = confidence
         self.save_debug_images = save_debug_images
         self.debug_images_dir = debug_images_dir
@@ -963,6 +948,10 @@ class CharClassifier(YOLOBase):
         if char_image.size == 0:
             return [("?", 0.0)]
         
+        char_image = cv2.cvtColor(char_image, cv2.COLOR_BGR2GRAY)
+        char_image = cv2.cvtColor(char_image, cv2.COLOR_GRAY2BGR)
+
+        # Character classification still requires consistent sizing
         # Create centered image on black background maintaining aspect ratio
         try:
             height, width = char_image.shape[:2]
@@ -1056,7 +1045,7 @@ class CharClassifier(YOLOBase):
     
     def _classify_pytorch(self, char_image: np.ndarray) -> List[Tuple[str, float]]:
         """Classify character using PyTorch model"""
-        # Run character classification model
+        # Run character classification model on prepared image
         results = self.model.predict(
             char_image, 
             conf=self.confidence_threshold, 
@@ -1116,8 +1105,8 @@ class CharClassifier(YOLOBase):
     
     def _classify_onnx(self, char_image: np.ndarray) -> List[Tuple[str, float]]:
         """Classify character using ONNX model"""
-        # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(char_image, self.resolution)
+        # Preprocess image for ONNX - use the specific size needed for character classification
+        input_tensor = self._preprocess_image(char_image)
         
         # Run inference
         outputs = self.onnx_session.run(

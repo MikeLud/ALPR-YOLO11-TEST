@@ -81,23 +81,21 @@ class YOLOBase:
             # Create a default mapping if no class file
             self.names = {i: str(i) for i in range(1000)}  # Default large number of classes
     
-    def _preprocess_image(self, image: np.ndarray, input_size: Tuple[int, int]) -> np.ndarray:
+    def _preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """
         Preprocess image for ONNX inference.
         
         Args:
             image: Input image as numpy array
-            input_size: Model input size (width, height)
             
         Returns:
             Preprocessed image as numpy array
         """
-        # Resize image
-        resized = cv2.resize(image, input_size)
-        
         # Convert to RGB if needed
-        if len(resized.shape) == 3 and resized.shape[2] == 3:
-            resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            resized = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            resized = image.copy()
         
         # Normalize and convert to float32
         normalized = resized.astype(np.float32) / 255.0

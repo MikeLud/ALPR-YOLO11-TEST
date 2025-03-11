@@ -32,7 +32,6 @@ class StateClassifier(YOLOBase):
         self.config = config
         self.model_path = config.get_model_path("state_classifier")
         self.confidence_threshold = config.state_classifier_confidence
-        self.resolution = (224, 224)  # Standard resolution for classification
         self.save_debug_images = config.save_debug_images
         self.debug_images_dir = config.debug_images_dir
         
@@ -69,30 +68,27 @@ class StateClassifier(YOLOBase):
         if self.model is None and self.onnx_session is None:
             return {"state": "Unknown", "confidence": 0.0}
         
-        # Resize plate image for state classifier
-        plate_resized = cv2.resize(plate_image, self.resolution)
-        
-        # Save resized input image for debugging if enabled
+        # Save input image for debugging if enabled
         if self.save_debug_images:
             save_debug_image(
-                image=plate_resized,
+                image=plate_image,
                 debug_dir=self.debug_images_dir,
                 prefix="state_classifier",
-                suffix="resized_input",
+                suffix="input",
                 draw_objects=None,
                 draw_type=None
             )
         
         try:
             if self.use_onnx:
-                result = self._classify_onnx(plate_resized)
+                result = self._classify_onnx(plate_image)
             else:
-                result = self._classify_pytorch(plate_resized)
+                result = self._classify_pytorch(plate_image)
                 
             # Save classification result visualization if debug is enabled
             if self.save_debug_images:
                 # Create a visualization of the state classification result
-                result_img = plate_resized.copy()
+                result_img = plate_image.copy()
                 h, w = result_img.shape[:2]
                 
                 # Add some space at the bottom for the label
@@ -123,7 +119,7 @@ class StateClassifier(YOLOBase):
     
     def _classify_pytorch(self, plate_image: np.ndarray) -> Dict[str, Any]:
         """Classify state using PyTorch model"""
-        # Run state classification model
+        # Run state classification model without resizing
         results = self.model(plate_image, conf=self.confidence_threshold, verbose=False)[0]
         
         # Save model output visualization if debug is enabled
@@ -192,8 +188,8 @@ class StateClassifier(YOLOBase):
     
     def _classify_onnx(self, plate_image: np.ndarray) -> Dict[str, Any]:
         """Classify state using ONNX model"""
-        # Preprocess image for ONNX
-        input_tensor = self._preprocess_image(plate_image, self.resolution)
+        # Preprocess image for ONNX without resizing
+        input_tensor = self._preprocess_image(plate_image)
         
         # Run inference
         outputs = self.onnx_session.run(

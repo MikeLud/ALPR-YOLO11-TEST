@@ -106,10 +106,10 @@
         {
           "Label": "License Plate Aspect Ratio",
           "Options": [
-            { "Label": "3.5 (US Standard)",  "Setting": "PLATE_ASPECT_RATIO", "Value": "3.5" },
-            { "Label": "4.0 (US/EU)",        "Setting": "PLATE_ASPECT_RATIO", "Value": "4.0" },
-            { "Label": "4.5 (EU Standard)",  "Setting": "PLATE_ASPECT_RATIO", "Value": "4.5" },
-            { "Label": "None (Auto detect)", "Setting": "PLATE_ASPECT_RATIO", "Value": "0" }
+            { "Label": "2.5 (US Standard)",   "Setting": "PLATE_ASPECT_RATIO", "Value": "2.5" },
+            { "Label": "3.375 (US/EU)",       "Setting": "PLATE_ASPECT_RATIO", "Value": "3.375" },
+            { "Label": "4.75 (EU Standard)",  "Setting": "PLATE_ASPECT_RATIO", "Value": "4.75" },
+            { "Label": "None (Auto detect)",  "Setting": "PLATE_ASPECT_RATIO", "Value": "0" }
           ]
         },
         {

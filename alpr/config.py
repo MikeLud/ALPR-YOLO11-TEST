@@ -161,7 +161,7 @@ def load_from_env() -> ALPRConfig:
     vehicle_classifier_confidence = float(ModuleOptions.getEnvVariable("VEHICLE_CLASSIFIER_CONFIDENCE", "0.45"))
     
     # Processing parameters
-    plate_aspect_ratio_str = ModuleOptions.getEnvVariable("PLATE_ASPECT_RATIO", "4.0")
+    plate_aspect_ratio_str = ModuleOptions.getEnvVariable("PLATE_ASPECT_RATIO", "2.5")
     plate_aspect_ratio = float(plate_aspect_ratio_str) if plate_aspect_ratio_str and plate_aspect_ratio_str != "0" else None
     corner_dilation_pixels = int(ModuleOptions.getEnvVariable("CORNER_DILATION_PIXELS", "5"))
     
