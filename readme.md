@@ -11,6 +11,7 @@ This is an Automatic License Plate Recognition (ALPR) module for [CodeProject.AI
 - Support for GPU acceleration via CUDA (NVIDIA) or MPS (Apple Silicon)
 - Configurable confidence thresholds and plate aspect ratios
 - Support for both PyTorch and ONNX model formats
+- Debug image saving for visualizing detection pipeline stages
 
 ## API Endpoint
 
@@ -50,7 +51,31 @@ The module supports several configuration options through environment variables:
 - `CORNER_DILATION_PIXELS`: Configure corner dilation for license plate extraction
 - `USE_ONNX`: Use ONNX models for faster inference (default: false, uses PyTorch)
 - `ONNX_MODELS_DIR`: Directory path for ONNX models (default: "models/onnx")
+- `SAVE_DEBUG_IMAGES`: Enable/disable saving debug images (default: false)
+- `DEBUG_IMAGES_DIR`: Directory path for debug images (default: "debug_images")
 - Various confidence thresholds for different detection components
+
+## Debug Image Support
+
+This module includes a debug image feature that saves intermediate results during license plate detection and recognition. This is useful for:
+
+- Troubleshooting detection issues
+- Visualizing each stage of the pipeline
+- Understanding how the models are processing images
+- Tuning confidence thresholds and other parameters
+
+When enabled, debug images are saved to the configured directory for each step of the detection process:
+- Original input images
+- Resized input images for each model
+- Model outputs and predictions
+- Plate detections with corners
+- Cropped license plates
+- Character detections within plates
+- State classification results
+- Vehicle detections and classifications
+- Final annotated results
+
+To enable debug images, set `SAVE_DEBUG_IMAGES` to "True" in the environment variables or use the "Debug Image Saving" option in the UI. You can also configure a custom directory path using the `DEBUG_IMAGES_DIR` setting.
 
 ## ONNX Support
 
